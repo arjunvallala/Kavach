@@ -1,22 +1,51 @@
 version: '3.8'
 
 services:
+  kavach-db:
+    image: postgis/postgis:15-3.3
+    container_name: kavach-postgis
+    environment:
+      POSTGRES_DB: kavach_ksp_db
+      POSTGRES_USER: ksp_admin
+      POSTGRES_PASSWORD: ksp_secure_password_2025
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ksp_admin -d kavach_ksp_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    container_name: kavach-backend
     ports:
       - "8000:8000"
     environment:
       - PORT=8000
-    volumes:
-      - ./backend:/app
+      - DATABASE_URL=postgresql://ksp_admin:ksp_secure_password_2025@kavach-db:5432/kavach_ksp_db
+      - JWT_SECRET_KEY=kavach_ksp_scrb_secret_key_jwt_2025_prod_key
+      - ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+    depends_on:
+      kavach-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     restart: always
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    container_name: kavach-frontend
     ports:
       - "3000:3000"
     environment:
@@ -24,3 +53,6 @@ services:
     depends_on:
       - backend
     restart: always
+
+volumes:
+  postgres_data:

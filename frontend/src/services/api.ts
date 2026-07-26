@@ -6,8 +6,23 @@ import {
 
 const API_BASE = 'http://localhost:8000/api';
 
-async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(url, options);
+let jwtToken: string | null = null;
+
+export const setAuthToken = (token: string) => {
+  jwtToken = token;
+};
+
+async function fetchJson<T>(url: string, options: RequestInit = {}): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string> || {})
+  };
+
+  if (jwtToken) {
+    headers['Authorization'] = `Bearer ${jwtToken}`;
+  }
+
+  const res = await fetch(url, { ...options, headers });
   if (!res.ok) {
     throw new Error(`API error ${res.status}: ${res.statusText}`);
   }
@@ -15,6 +30,15 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  login: async (username: string, role: string) => {
+    const data = await fetchJson<{ access_token: string; user: any }>(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      body: JSON.stringify({ username, password: 'password', role })
+    });
+    setAuthToken(data.access_token);
+    return data;
+  },
+
   getOverview: (district = 'All') => 
     fetchJson<OverviewStats>(`${API_BASE}/overview?district=${encodeURIComponent(district)}`),
 
@@ -30,15 +54,17 @@ export const api = {
   getTrends: (district = 'All') => 
     fetchJson<TrendsResponse>(`${API_BASE}/trends?district=${encodeURIComponent(district)}`),
 
+  getCasesFeedback: (district = 'All') => 
+    fetchJson<{ crime_category: string; total_cases: number; conviction_rate: number }[]>(`${API_BASE}/cases/feedback?district=${encodeURIComponent(district)}`),
+
   parseFir: (narrative: string) => 
     fetchJson<FirParseResponse>(`${API_BASE}/nlp/parse`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ narrative })
     }),
 
-  getFairnessAudit: () => 
-    fetchJson<FairnessAuditResponse>(`${API_BASE}/fairness/audit`),
+  getFairnessAudit: (district = 'All') => 
+    fetchJson<FairnessAuditResponse>(`${API_BASE}/fairness/audit?district=${encodeURIComponent(district)}`),
 
   optimizePatrol: (station = 'Peenya PS') => 
     fetchJson<PatrolOptimizationResponse>(`${API_BASE}/patrol/optimize?station=${encodeURIComponent(station)}`),
