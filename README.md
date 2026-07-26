@@ -4,6 +4,7 @@
 > *Built for Karnataka State Police (KSP)*
 
 [![CI/CD Pipeline](https://github.com/arjunvallala/Kavach/actions/workflows/ci.yml/badge.svg)](https://github.com/arjunvallala/Kavach/actions/workflows/ci.yml)
+[![Zoho Catalyst](https://img.shields.io/badge/Deployment-Zoho%20Catalyst-FF5000.svg)](https://catalyst.zoho.com)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688.svg)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/Frontend-React%20%2B%20TypeScript-61DAFB.svg)](https://reactjs.org)
 [![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL%20%2B%20PostGIS-336791.svg)](https://www.postgresql.org)
@@ -33,6 +34,41 @@ Kavach unifies state crime records into a database-backed AI strategic command c
 
 ---
 
+## ☁️ Zoho Catalyst Deployment Guide
+
+Kavach is pre-configured for one-command deployment to **Zoho Catalyst**:
+- **Backend Service**: Deployed via **Zoho Catalyst AppSail** (Python microservice).
+- **Frontend Client**: Deployed via **Zoho Catalyst Client Hosting** (`frontend/dist`).
+
+### Step-by-Step Deployment Instructions:
+
+1. **Install Zoho Catalyst CLI** (if not already installed):
+   ```bash
+   npm install -g zcatalyst-cli
+   ```
+
+2. **Authenticate with Zoho Catalyst**:
+   ```bash
+   catalyst login
+   ```
+
+3. **Build the Frontend Dist Production Bundle**:
+   ```bash
+   cd frontend
+   npm install
+   npm run build
+   cd ..
+   ```
+
+4. **Deploy to Zoho Catalyst Cloud**:
+   ```bash
+   catalyst deploy
+   ```
+
+5. Access your live production application link provided in the CLI output!
+
+---
+
 ## 🎯 Problem to Solution Mapping (KSP Hackathon Requirements)
 
 | KSP Problem Statement Requirement | Kavach Module & Verified Implementation |
@@ -56,8 +92,8 @@ Kavach unifies state crime records into a database-backed AI strategic command c
 
 ```mermaid
 graph TD
-    User([KSP Officer / SCRB Analyst]) -->|React UI / Dark Command Center| Frontend[Vite + React + TypeScript + Leaflet]
-    Frontend -->|REST APIs + Signed PyJWT| Backend[FastAPI Backend Server]
+    User([KSP Officer / SCRB Analyst]) -->|React UI / Dark Command Center| Frontend[Zoho Catalyst Client Hosting - React]
+    Frontend -->|REST APIs + Signed PyJWT| Backend[Zoho Catalyst AppSail - FastAPI]
     
     subgraph Backend Core Engine
         Backend --> DB[(PostgreSQL + PostGIS Database)]
@@ -79,46 +115,7 @@ graph TD
 
 ---
 
-## 💡 What's Novel (Hackathon Differentiators)
-
-1. **Genuine PostgreSQL + PostGIS Database Backend**: All core endpoints (`/api/overview`, `/api/geospatial/hotspots`, `/api/trends`, `/api/tips`) query persistent database tables via SQLAlchemy ORM.
-2. **Role Password Authentication & PyJWT Guards**: Password verification (`ksp_admin_2025`, `ksp_analyst_2025`, `ksp_sp_2025`, etc.) with PyJWT algorithm enforcement and timestamp validation.
-3. **Real SHAP TreeExplainer Explainability**: Gives court-admissible feature attribution breakdowns ($\phi_i$) for every XGBoost risk prediction.
-4. **Bilingual (Kannada Unicode + English) FIR Text Mining**: Extracts structured entities (weapons, vehicles, MO tags) from mixed Kannada script (`ಸರ ಕಳವು`, `ಚಾಕು`, `ಗಾಂಜಾ`) and English text.
-5. **Dynamic 80% Rule Bias & Fairness Audit**: Dynamically calculates top-level overall fairness compliance percentages and district Disparate Impact Ratios ($0.80 \le \text{Ratio} \le 1.25$).
-6. **Downloadable Briefing Files & Persistent Citizen Tips**: Direct file downloads via `/api/report/download` and persistent citizen tip database writes (`/api/tips/submit`).
-
----
-
-## 🚀 2-Minute Judge Demo Script
-
-1. **0:00 – 0:30 (Command Center & Hotspots)**:
-   - Open Kavach dashboard (`http://localhost:3000`). Show the dark SCRB Command Center theme.
-   - Point to the live **Executive Overview** cards querying 5,500 database FIR records and active red zones.
-   - Switch to **Geospatial Intelligence**. Drag the **Time-of-Day Slider** from 18:00 to 23:00 to watch DBSCAN clusters dynamically recalculate and highlight the pulsing **Red-Zone Alert** in Peenya PS ($z = +2.4$).
-2. **0:30 – 1:00 (Network Graph & Criminal Rings)**:
-   - Click **Network & Link Analysis**. Hover over the force graph to showcase offender co-accused links.
-   - Highlight **Garuda Syndicate (RING-KSP-101)** automatically surfaced by the Louvain community detection algorithm (`nx.community.louvain_communities`). Click a node to view the MO similarity score (92.4% match).
-3. **1:00 – 1:30 (Predictive Risk & SHAP Explainability)**:
-   - Click **AI Risk & SHAP Explainability**. Show the 7-day risk watchlist ranking stations by risk score.
-   - Click **Peenya PS (Risk: 88/100)** to reveal the SHAP bar chart showing exact feature attributions (*Historical Density +0.38, Unemployment Rate +0.24*).
-4. **1:30 – 2:00 (Bilingual NLP & Downloadable Briefing File)**:
-   - Switch to **SCRB Innovation Suite** -> **Bilingual FIR NLP Mining**. Select a Kannada/English sample narrative and click **Extract Entities** to show extracted weapons (Knife/ಚಾಕು), vehicle (Pulsar 220), and IPC section 392.
-   - Click **Export Briefing** -> **Download File** in the header to trigger a direct file download of the KSP SCRB Intelligence Report.
-
----
-
-## 📊 5-Slide Pitch Outline
-
-- **Slide 1: The Problem**: KSP crime records are siloed in Excel spreadsheets, strictly reactive, with zero cross-jurisdiction link visibility or automated hotspot forecasting.
-- **Slide 2: The Solution (Kavach)**: A unified, AI-driven SCRB Strategic Intelligence Platform offering geospatial hotspots, link analysis, predictive risk scoring, and bilingual NLP text mining.
-- **Slide 3: Architecture & Data Pipeline**: Powered by React/TypeScript frontend, FastAPI backend, PostgreSQL + PostGIS, DBSCAN clustering, XGBoost risk models, SHAP TreeExplainer, and NetworkX Louvain graph analytics.
-- **Slide 4: Key Differentiators**: Bilingual Kannada/English FIR entity extraction, SHAP evidence-grade explainability, Responsible AI 80% Rule fairness audit dashboard, and Hoysala patrol route optimization.
-- **Slide 5: Impact & Future Roadmap**: Transforms KSP from reactive policing to proactive intelligence; ready for live KSP CCTNS integration and state-wide rollout.
-
----
-
-## 💻 Local One-Command Setup
+## 💻 Local & Docker Setup
 
 ### Option 1: Docker Compose (PostgreSQL + PostGIS + FastAPI + React)
 ```bash

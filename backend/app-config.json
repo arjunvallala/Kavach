@@ -1,0 +1,8 @@
+{
+  "command": "python -m uvicorn main:app --host 0.0.0.0 --port $PORT",
+  "stack": "Python-3.10",
+  "env_variables": {
+    "JWT_SECRET_KEY": "kavach_ksp_scrb_secret_key_jwt_2025_prod_key",
+    "ALLOWED_ORIGINS": "*"
+  }
+}

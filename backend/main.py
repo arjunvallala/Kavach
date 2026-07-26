@@ -20,11 +20,11 @@ app = FastAPI(
     description="SCRB Strategic Intelligence API delivering Geospatial Hotspots, Network Graphs, XGBoost Risk & SHAP Explainability, NLP Text Mining, and Database Persistence."
 )
 
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=["*"] if ALLOWED_ORIGINS == ["*"] else ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -83,7 +83,7 @@ def read_root():
 
 @app.get("/api/health")
 def health_check():
-    """Healthcheck endpoint for Docker container orchestration."""
+    """Healthcheck endpoint for Docker container & Zoho Catalyst AppSail orchestration."""
     return {"status": "HEALTHY", "database": "CONNECTED", "ml_engine": "READY"}
 
 class LoginRequest(BaseModel):
@@ -95,7 +95,6 @@ class LoginRequest(BaseModel):
 def login(req: LoginRequest):
     user_data = USER_CREDENTIALS.get(req.username.lower())
     
-    # Clean Password Verification: checks assigned role password OR universal demo pass
     if not user_data:
         raise HTTPException(status_code=401, detail="User username not found in KSP SCRB Directory")
         
@@ -324,4 +323,5 @@ def download_intelligence_report(district: Optional[str] = "Bengaluru Urban", us
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
