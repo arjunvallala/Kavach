@@ -41,7 +41,7 @@ FIR_DF = query_firs_from_db(district="All")
 ML_ENGINE = KavachMLEngine(FIR_DF if not FIR_DF.empty else RAW_DF)
 print(f"Kavach ML Engine & Database initialized ({len(FIR_DF)} DB records loaded).")
 
-# Role Credentials Store (Fixed demo passwords per role)
+# Role Credentials Store (Documented Demo Passwords)
 USER_CREDENTIALS = {
     "admin": {"password": "ksp_admin_2025", "name": "SCRB Director General", "role": "Admin", "badge": "KSP-001", "district": "Statewide SCRB"},
     "analyst": {"password": "ksp_analyst_2025", "name": "Inspector Vijay Kumar", "role": "SCRB Analyst", "badge": "KSP-084", "district": "Bengaluru Urban"},
@@ -95,12 +95,12 @@ class LoginRequest(BaseModel):
 def login(req: LoginRequest):
     user_data = USER_CREDENTIALS.get(req.username.lower())
     
-    # Password Verification
+    # Clean Password Verification: checks assigned role password OR universal demo pass
     if not user_data:
         raise HTTPException(status_code=401, detail="User username not found in KSP SCRB Directory")
         
     expected_pass = user_data["password"]
-    if req.password != expected_pass and req.password != DEMO_UNIVERSAL_PASS and req.password != "password":
+    if req.password != expected_pass and req.password != DEMO_UNIVERSAL_PASS:
         raise HTTPException(status_code=401, detail="Invalid credentials. Access Denied.")
         
     token = create_access_token({
@@ -124,7 +124,6 @@ def login(req: LoginRequest):
 
 @app.get("/api/overview")
 def get_overview(district: Optional[str] = "All"):
-    # Database Query
     df = query_firs_from_db(district=district)
     if df.empty:
         df = FIR_DF

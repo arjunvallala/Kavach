@@ -11,6 +11,20 @@
 
 ---
 
+## 🔑 Demo Login Credentials (For Hackathon Judges)
+
+The platform supports Role-Based Access Control (RBAC) with PyJWT token signing. Use any of the following credentials or the universal demo password:
+
+| Role | Username | Dedicated Password | Universal Demo Password |
+| :--- | :--- | :--- | :--- |
+| **SCRB Director General (Admin)** | `admin` | `ksp_admin_2025` | `ksp_demo_2025` |
+| **SCRB Analyst** | `analyst` | `ksp_analyst_2025` | `ksp_demo_2025` |
+| **District SP** | `sp` | `ksp_sp_2025` | `ksp_demo_2025` |
+| **Station House Officer (SHO)** | `sho` | `ksp_sho_2025` | `ksp_demo_2025` |
+| **Constable** | `constable` | `ksp_constable_2025` | `ksp_demo_2025` |
+
+---
+
 ## 📌 Executive Summary
 
 **Kavach (ಕವಚ)** is a state-of-the-art, proactive Crime Intelligence & Analytical Platform engineered for the Karnataka State Police (KSP) and State Crime Records Bureau (SCRB). 
