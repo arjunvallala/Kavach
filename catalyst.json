@@ -1,6 +1,10 @@
 {
   "client": {
-    "source": "frontend/dist"
+    "source": "frontend/dist",
+    "index": "index.html",
+    "ignore": [
+      "**/.*"
+    ]
   },
   "appsail": [
     {
