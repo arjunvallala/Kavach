@@ -1,5 +1,6 @@
 {
   "client": {
+    "name": "client",
     "source": "client"
   },
   "appsail": [
