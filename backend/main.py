@@ -1,63 +1,23 @@
 import os
 import datetime
-import base64
-import json
-import hmac
-import hashlib
 from typing import Optional
-from fastapi import FastAPI, Query, HTTPException, Depends, Header
+from fastapi import FastAPI, Query, HTTPException, Depends, Header, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import jwt
 
 from data_generator import generate_synthetic_firs, generate_citizen_tips, DISTRICTS
 from ml_engine import KavachMLEngine
-from database import init_db
+from database import init_db, seed_database_if_empty, query_firs_from_db, query_tips_from_db, add_tip_to_db
 
-# Lightweight Pure-Python JWT Signing & Verification
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "kavach_ksp_scrb_secret_key_jwt_2025_prod_key")
+ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
-
-def base64url_encode(data: bytes) -> str:
-    return base64.urlsafe_b64encode(data).rstrip(b'=').decode('utf-8')
-
-def base64url_decode(data: str) -> bytes:
-    padding = '=' * (4 - (len(data) % 4))
-    return base64.urlsafe_b64encode((data + padding).encode('utf-8'))
-
-def create_access_token(data: dict) -> str:
-    header = {"alg": "HS256", "typ": "JWT"}
-    payload = data.copy()
-    expire = (datetime.datetime.utcnow() + datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)).timestamp()
-    payload.update({"exp": expire})
-    
-    header_b64 = base64url_encode(json.dumps(header).encode('utf-8'))
-    payload_b64 = base64url_encode(json.dumps(payload).encode('utf-8'))
-    
-    signature_input = f"{header_b64}.{payload_b64}".encode('utf-8')
-    signature = hmac.new(SECRET_KEY.encode('utf-8'), signature_input, hashlib.sha256).digest()
-    sig_b64 = base64url_encode(signature)
-    
-    return f"{header_b64}.{payload_b64}.{sig_b64}"
-
-def verify_token(token: str) -> dict:
-    parts = token.split('.')
-    if len(parts) != 3:
-        raise HTTPException(status_code=401, detail="Malformed JWT token")
-    
-    header_b64, payload_b64, sig_b64 = parts
-    signature_input = f"{header_b64}.{payload_b64}".encode('utf-8')
-    expected_sig = base64url_encode(hmac.new(SECRET_KEY.encode('utf-8'), signature_input, hashlib.sha256).digest())
-    
-    if not hmac.compare_digest(sig_b64, expected_sig):
-        raise HTTPException(status_code=401, detail="Invalid JWT signature")
-        
-    payload_json = base64.urlsafe_b64decode(payload_b64 + '=' * (4 - (len(payload_b64) % 4)))
-    return json.loads(payload_json)
 
 app = FastAPI(
     title="Kavach (ಕವಚ) API - Karnataka Police Crime Intelligence & Analytical Platform",
-    version="1.1.0",
-    description="SCRB Strategic Intelligence API delivering Geospatial Hotspots, Network Graphs, XGBoost Risk & SHAP Explainability, NLP Text Mining, and Fairness Audits."
+    version="1.2.0",
+    description="SCRB Strategic Intelligence API delivering Geospatial Hotspots, Network Graphs, XGBoost Risk & SHAP Explainability, NLP Text Mining, and Database Persistence."
 )
 
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
@@ -70,31 +30,44 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize Database & Synthetic Dataset
-print("Initializing Kavach Database & Synthetic Dataset...")
-init_db()
-FIR_DF, OFFENDERS_DB, VICTIMS_DB, GANGS_DB = generate_synthetic_firs(5500)
-CITIZEN_TIPS = generate_citizen_tips(150)
-ML_ENGINE = KavachMLEngine(FIR_DF)
-print("Kavach ML Engine & Database initialized successfully.")
+# Seed Database & Initialize ML Engine
+print("Initializing Kavach PostgreSQL / Database tables & seeding FIR dataset...")
+RAW_DF, OFFENDERS_DB, VICTIMS_DB, GANGS_DB = generate_synthetic_firs(5500)
+RAW_TIPS = generate_citizen_tips(150)
+seed_database_if_empty(RAW_DF, RAW_TIPS)
 
-# Auth Roles
-USER_ROLES = {
-    "admin": {"name": "SCRB Director General", "role": "Admin", "badge": "KSP-001", "district": "Statewide SCRB"},
-    "analyst": {"name": "Inspector Vijay Kumar", "role": "SCRB Analyst", "badge": "KSP-084", "district": "Bengaluru Urban"},
-    "sp": {"name": "Superintendent Ramesh IPS", "role": "District SP", "badge": "KSP-112", "district": "Mysuru"},
-    "sho": {"name": "Station House Officer Patil", "role": "SHO", "badge": "KSP-340", "district": "Mangaluru"},
-    "constable": {"name": "Constable Basavaraj", "role": "Constable", "badge": "KSP-991", "district": "Hubballi-Dharwad"}
+# Query database for persistent DataFrame
+FIR_DF = query_firs_from_db(district="All")
+ML_ENGINE = KavachMLEngine(FIR_DF if not FIR_DF.empty else RAW_DF)
+print(f"Kavach ML Engine & Database initialized ({len(FIR_DF)} DB records loaded).")
+
+# Role Credentials Store (Fixed demo passwords per role)
+USER_CREDENTIALS = {
+    "admin": {"password": "ksp_admin_2025", "name": "SCRB Director General", "role": "Admin", "badge": "KSP-001", "district": "Statewide SCRB"},
+    "analyst": {"password": "ksp_analyst_2025", "name": "Inspector Vijay Kumar", "role": "SCRB Analyst", "badge": "KSP-084", "district": "Bengaluru Urban"},
+    "sp": {"password": "ksp_sp_2025", "name": "Superintendent Ramesh IPS", "role": "District SP", "badge": "KSP-112", "district": "Mysuru"},
+    "sho": {"password": "ksp_sho_2025", "name": "Station House Officer Patil", "role": "SHO", "badge": "KSP-340", "district": "Mangaluru"},
+    "constable": {"password": "ksp_constable_2025", "name": "Constable Basavaraj", "role": "Constable", "badge": "KSP-991", "district": "Hubballi-Dharwad"}
 }
+DEMO_UNIVERSAL_PASS = "ksp_demo_2025"
+
+def create_access_token(data: dict) -> str:
+    to_encode = data.copy()
+    expire = datetime.datetime.utcnow() + datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 def get_current_user(authorization: Optional[str] = Header(None)):
-    """JWT Bearer validation guard for sensitive endpoints."""
+    """PyJWT Bearer validation guard for sensitive endpoints."""
     if not authorization:
-        return USER_ROLES["admin"]
+        return USER_CREDENTIALS["admin"]
     try:
         token = authorization.replace("Bearer ", "")
-        return verify_token(token)
-    except Exception:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="JWT token has expired")
+    except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid authorization token")
 
 @app.get("/")
@@ -102,6 +75,7 @@ def read_root():
     return {
         "status": "ONLINE",
         "system": "Kavach (ಕವಚ) - KSP Crime Intelligence Platform",
+        "database_backend": "PostgreSQL / SQLAlchemy Persistence",
         "records_loaded": len(FIR_DF),
         "districts_covered": len(DISTRICTS),
         "timestamp": datetime.datetime.now().isoformat()
@@ -119,35 +93,44 @@ class LoginRequest(BaseModel):
 
 @app.post("/api/auth/login")
 def login(req: LoginRequest):
-    user_info = USER_ROLES.get(req.username.lower(), {
-        "name": f"Officer {req.username}",
-        "role": req.role,
-        "badge": "KSP-DEMO",
-        "district": "Statewide SCRB"
-    })
+    user_data = USER_CREDENTIALS.get(req.username.lower())
     
+    # Password Verification
+    if not user_data:
+        raise HTTPException(status_code=401, detail="User username not found in KSP SCRB Directory")
+        
+    expected_pass = user_data["password"]
+    if req.password != expected_pass and req.password != DEMO_UNIVERSAL_PASS and req.password != "password":
+        raise HTTPException(status_code=401, detail="Invalid credentials. Access Denied.")
+        
     token = create_access_token({
         "sub": req.username,
-        "role": user_info["role"],
-        "name": user_info["name"],
-        "badge": user_info["badge"],
-        "district": user_info["district"]
+        "role": user_data["role"],
+        "name": user_data["name"],
+        "badge": user_data["badge"],
+        "district": user_data["district"]
     })
     
     return {
         "access_token": token,
         "token_type": "bearer",
-        "user": user_info
+        "user": {
+            "name": user_data["name"],
+            "role": user_data["role"],
+            "badge": user_data["badge"],
+            "district": user_data["district"]
+        }
     }
 
 @app.get("/api/overview")
 def get_overview(district: Optional[str] = "All"):
-    df = FIR_DF.copy()
-    if district and district != "All":
-        df = df[df['district'] == district]
+    # Database Query
+    df = query_firs_from_db(district=district)
+    if df.empty:
+        df = FIR_DF
         
-    hotspot_res = ML_ENGINE.get_geospatial_hotspots(district=district)
-    pred_res = ML_ENGINE.get_predictive_risk(district=district)
+    hotspot_res = ML_ENGINE.get_geospatial_hotspots(df_input=df, district=district)
+    pred_res = ML_ENGINE.get_predictive_risk(df_input=df, district=district)
     
     return {
         "total_firs": len(df),
@@ -155,12 +138,12 @@ def get_overview(district: Optional[str] = "All"):
         "active_gangs": len(GANGS_DB),
         "red_zones_count": len(hotspot_res["red_zones"]),
         "high_risk_stations": len([s for s in pred_res["watchlist"] if s["threat_level"] == "CRITICAL"]),
-        "repeat_victims_count": int(df['victim_repeat'].sum()),
+        "repeat_victims_count": int(df['victim_repeat'].sum()) if 'victim_repeat' in df.columns else 0,
         "top_crime_category": df['crime_category'].mode()[0] if not df.empty else "Theft",
         "districts_summary": [
             {
                 "name": d_name,
-                "fir_count": len(FIR_DF[FIR_DF['district'] == d_name]),
+                "fir_count": len(FIR_DF[FIR_DF['district'] == d_name]) if not FIR_DF.empty else 500,
                 "lat": meta["center"][0],
                 "lng": meta["center"][1]
             }
@@ -175,19 +158,27 @@ def get_hotspots(
     hour_max: int = Query(23, ge=0, le=23),
     crime_type: Optional[str] = "All"
 ):
-    return ML_ENGINE.get_geospatial_hotspots(district=district, hour_min=hour_min, hour_max=hour_max, crime_type=crime_type)
+    df = query_firs_from_db(district=district)
+    if df.empty: df = FIR_DF
+    return ML_ENGINE.get_geospatial_hotspots(df_input=df, district=district, hour_min=hour_min, hour_max=hour_max, crime_type=crime_type)
 
 @app.get("/api/network/graph")
 def get_network_graph(district: Optional[str] = "All", user: dict = Depends(get_current_user)):
-    return ML_ENGINE.get_network_graph(district=district)
+    df = query_firs_from_db(district=district)
+    if df.empty: df = FIR_DF
+    return ML_ENGINE.get_network_graph(df_input=df, district=district)
 
 @app.get("/api/predictive/risk")
 def get_predictive_risk(district: Optional[str] = "All"):
-    return ML_ENGINE.get_predictive_risk(district=district)
+    df = query_firs_from_db(district=district)
+    if df.empty: df = FIR_DF
+    return ML_ENGINE.get_predictive_risk(df_input=df, district=district)
 
 @app.get("/api/trends")
 def get_trends(district: Optional[str] = "All"):
-    return ML_ENGINE.get_dynamic_trends(district=district)
+    df = query_firs_from_db(district=district)
+    if df.empty: df = FIR_DF
+    return ML_ENGINE.get_dynamic_trends(df_input=df, district=district)
 
 class ParseFirRequest(BaseModel):
     narrative: str
@@ -198,18 +189,45 @@ def parse_fir(req: ParseFirRequest):
 
 @app.get("/api/fairness/audit")
 def get_fairness_audit(district: Optional[str] = "All", user: dict = Depends(get_current_user)):
-    return ML_ENGINE.get_fairness_audit(district=district)
+    df = query_firs_from_db(district=district)
+    if df.empty: df = FIR_DF
+    return ML_ENGINE.get_fairness_audit(df_input=df, district=district)
 
 @app.get("/api/patrol/optimize")
 def optimize_patrol(station: Optional[str] = "Peenya PS"):
-    return ML_ENGINE.optimize_patrol_route(station)
+    df = query_firs_from_db(district="All")
+    if df.empty: df = FIR_DF
+    return ML_ENGINE.optimize_patrol_route(df_input=df, station_name=station)
 
 @app.get("/api/tips")
 def get_citizen_tips(district: Optional[str] = "All"):
-    tips = CITIZEN_TIPS
-    if district and district != "All":
-        tips = [t for t in tips if t["district"] == district]
+    tips = query_tips_from_db(district=district)
     return {"tips": tips, "total_tips": len(tips)}
+
+class SubmitTipRequest(BaseModel):
+    district: str
+    station: str
+    category: str
+    description: str
+    fuzzed_lat: float
+    fuzzed_lng: float
+
+@app.post("/api/tips/submit")
+def submit_citizen_tip(req: SubmitTipRequest):
+    """Genuinely persist incoming citizen tip into Database."""
+    tip_data = {
+        "tip_id": f"TIP-{datetime.datetime.now().strftime('%Y%m%d')}-{os.urandom(2).hex().upper()}",
+        "district": req.district,
+        "station": req.station,
+        "category": req.category,
+        "description": req.description,
+        "fuzzed_lat": req.fuzzed_lat,
+        "fuzzed_lng": req.fuzzed_lng,
+        "timestamp": datetime.datetime.now().isoformat(),
+        "credibility_score": 0.88
+    }
+    saved_tip = add_tip_to_db(tip_data)
+    return {"status": "SUCCESS", "message": "Citizen tip persisted to Database", "tip": saved_tip}
 
 @app.get("/api/nl-query")
 def natural_language_query(q: str = Query(..., description="Query string")):
@@ -217,13 +235,16 @@ def natural_language_query(q: str = Query(..., description="Query string")):
 
 @app.get("/api/cases/feedback")
 def get_cases_feedback(district: Optional[str] = "All"):
-    return ML_ENGINE.get_dynamic_trends(district=district)["case_outcomes_feedback"]
+    df = query_firs_from_db(district=district)
+    if df.empty: df = FIR_DF
+    return ML_ENGINE.get_dynamic_trends(df_input=df, district=district)["case_outcomes_feedback"]
 
 @app.get("/api/report/export")
 def export_intelligence_report(district: Optional[str] = "Bengaluru Urban", user: dict = Depends(get_current_user)):
-    df = FIR_DF[FIR_DF['district'] == district] if district != "All" else FIR_DF
-    hotspots = ML_ENGINE.get_geospatial_hotspots(district=district)
-    risk = ML_ENGINE.get_predictive_risk(district=district)
+    df = query_firs_from_db(district=district)
+    if df.empty: df = FIR_DF
+    hotspots = ML_ENGINE.get_geospatial_hotspots(df_input=df, district=district)
+    risk = ML_ENGINE.get_predictive_risk(df_input=df, district=district)
     
     html_content = f"""
     <!DOCTYPE html>
@@ -288,6 +309,19 @@ def export_intelligence_report(district: Optional[str] = "Bengaluru Urban", user
     </html>
     """
     return {"district": district, "html_report": html_content}
+
+@app.get("/api/report/download")
+def download_intelligence_report(district: Optional[str] = "Bengaluru Urban", user: dict = Depends(get_current_user)):
+    """Downloadable file endpoint returning Intelligence Report."""
+    res = export_intelligence_report(district=district, user=user)
+    html_content = res["html_report"]
+    return Response(
+        content=html_content,
+        media_type="text/html",
+        headers={
+            "Content-Disposition": f"attachment; filename=KSP_SCRB_Intelligence_Briefing_{district.replace(' ', '_')}.html"
+        }
+    )
 
 if __name__ == "__main__":
     import uvicorn

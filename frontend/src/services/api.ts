@@ -30,10 +30,10 @@ async function fetchJson<T>(url: string, options: RequestInit = {}): Promise<T> 
 }
 
 export const api = {
-  login: async (username: string, role: string) => {
+  login: async (username: string, role: string, password = 'ksp_demo_2025') => {
     const data = await fetchJson<{ access_token: string; user: any }>(`${API_BASE}/auth/login`, {
       method: 'POST',
-      body: JSON.stringify({ username, password: 'password', role })
+      body: JSON.stringify({ username, password, role })
     });
     setAuthToken(data.access_token);
     return data;
@@ -72,9 +72,18 @@ export const api = {
   getTips: (district = 'All') => 
     fetchJson<{ tips: CitizenTip[]; total_tips: number }>(`${API_BASE}/tips?district=${encodeURIComponent(district)}`),
 
+  submitTip: (tipData: any) =>
+    fetchJson<{ status: string; tip: CitizenTip }>(`${API_BASE}/tips/submit`, {
+      method: 'POST',
+      body: JSON.stringify(tipData)
+    }),
+
   nlQuery: (query: string) => 
     fetchJson<NlQueryResponse>(`${API_BASE}/nl-query?q=${encodeURIComponent(query)}`),
 
   getReportHtml: (district = 'Bengaluru Urban') => 
-    fetchJson<{ district: string; html_report: string }>(`${API_BASE}/report/export?district=${encodeURIComponent(district)}`)
+    fetchJson<{ district: string; html_report: string }>(`${API_BASE}/report/export?district=${encodeURIComponent(district)}`),
+
+  downloadReportUrl: (district = 'Bengaluru Urban') => 
+    `${API_BASE}/report/download?district=${encodeURIComponent(district)}`
 };

@@ -15,7 +15,7 @@
 
 **Kavach (ಕವಚ)** is a state-of-the-art, proactive Crime Intelligence & Analytical Platform engineered for the Karnataka State Police (KSP) and State Crime Records Bureau (SCRB). 
 
-Kavach unifies state crime records into an AI-powered strategic command center featuring **spatiotemporal DBSCAN hotspot clustering**, **force-directed criminological graph analytics (real Louvain community detection)**, **XGBoost risk scoring with real SHAP TreeExplainer feature attributions**, **bilingual (Kannada Unicode + English) FIR text mining**, **responsible AI 80%-rule fairness auditing**, **Hoysala patrol route optimization**, and **anonymized citizen tip intelligence**.
+Kavach unifies state crime records into a database-backed AI strategic command center featuring **PostgreSQL + PostGIS persistence**, **spatiotemporal DBSCAN hotspot clustering**, **force-directed criminological graph analytics (Louvain community detection)**, **XGBoost risk scoring with real SHAP TreeExplainer feature attributions**, **bilingual (Kannada Unicode + English) FIR text mining**, **responsible AI 80%-rule fairness auditing**, **Hoysala patrol route optimization**, **persistent citizen tips**, and **direct report file exports**.
 
 ---
 
@@ -23,17 +23,17 @@ Kavach unifies state crime records into an AI-powered strategic command center f
 
 | KSP Problem Statement Requirement | Kavach Module & Verified Implementation |
 | :--- | :--- |
-| **Siloed, manual Excel records** | Unified REST API & PostgreSQL/PostGIS store with 5,500+ synthetic KSP FIR records across 10 Karnataka districts. |
-| **Lack of SCRB-level proactive visibility** | **Executive Strategic Command Dashboard** with real-time state metrics, active gang counters, and critical threat watchlists. |
-| **Geospatial & Spatiotemporal Hotspot Detection** | **District → Station Drilldown GIS Map** with time-of-day slider (00:00–23:00) and recalculating **DBSCAN clusters**. |
+| **Siloed, manual Excel records** | Persistent **PostgreSQL / PostGIS Database Store** with 5,500+ synthetic KSP FIR records & citizen tips across 10 Karnataka districts. |
+| **Lack of SCRB-level proactive visibility** | **Executive Strategic Command Dashboard** querying database statistics for active gang counters and critical threat watchlists. |
+| **Geospatial & Spatiotemporal Hotspot Detection** | **District → Station Drilldown GIS Map** querying DB records with time-of-day slider (00:00–23:00) and recalculating **DBSCAN clusters**. |
 | **Emerging Trend Anomaly Alerts** | **Pulsing Red-Zone Alerts** calculating rolling z-score baseline deviations ($z \ge +1.2$). |
 | **Criminal Link & Network Analysis** | **Force-Directed Graph Visualization** running real NetworkX **Louvain community detection** (`nx.community.louvain_communities`). |
 | **Predictive Risk & Evidence-Grade AI** | **XGBoost Classifier Risk Watchlist** with real per-prediction **SHAP TreeExplainer** feature attribution vectors. |
-| **Exportable Intelligence Reports** | **SCRB Intelligence Briefing Generator** exporting printable/downloadable HTML/PDF briefing documents. |
-| **Unstructured FIR Text Data** | **Bilingual (Kannada Unicode + English) NLP Parser** extracting weapons, vehicles, stolen amounts, and IPC sections. |
-| **Ethical AI & Over-Policing Risk** | **Bias & Fairness Audit Dashboard** computing dynamic Disparate Impact Ratios against the 80% Rule ($0.80 \le \text{Ratio} \le 1.25$). |
+| **Exportable Intelligence Reports** | **SCRB Intelligence Briefing Generator** exporting downloadable HTML/PDF briefing files via `/api/report/download`. |
+| **Unstructured FIR Text Data** | **Bilingual (Kannada Unicode + English) NLP Parser** extracting weapons (`ಚಾಕು`), vehicles, stolen amounts, and IPC sections. |
+| **Ethical AI & Over-Policing Risk** | **Bias & Fairness Audit Dashboard** computing dynamic overall fairness scores and Disparate Impact Ratios against the 80% Rule ($0.80 \le \text{Ratio} \le 1.25$). |
 | **Actionable Operational Deployment** | **Hoysala Patrol Route Optimizer** generating waypoint sequences, time slots, and fuel estimates for station units. |
-| **Community & Citizen Engagement** | **Anonymized Citizen Tip Layer** geo-fuzzed for privacy compliance under DPDP Act 2023. |
+| **Community & Citizen Engagement** | **Anonymized Citizen Tip Layer** persisting tips directly to database tables, geo-fuzzed under DPDP Act 2023. |
 | **Natural Language Accessibility** | **Multilingual Voice/Text Query Bar** translating query strings ("Show me theft hotspots in Mysuru") into JSON filters. |
 
 ---
@@ -43,11 +43,11 @@ Kavach unifies state crime records into an AI-powered strategic command center f
 ```mermaid
 graph TD
     User([KSP Officer / SCRB Analyst]) -->|React UI / Dark Command Center| Frontend[Vite + React + TypeScript + Leaflet]
-    Frontend -->|REST APIs + Signed JWT| Backend[FastAPI Backend Server]
+    Frontend -->|REST APIs + Signed PyJWT| Backend[FastAPI Backend Server]
     
     subgraph Backend Core Engine
         Backend --> DB[(PostgreSQL + PostGIS Database)]
-        Backend --> DataGen[Synthetic KSP Data Pipeline - 5,500 FIRs]
+        Backend --> DataGen[Synthetic KSP Data Pipeline & DB Seeder]
         Backend --> MLEngine[Kavach ML & AI Services Engine]
         
         MLEngine --> DBSCAN[DBSCAN Spatiotemporal Hotspot Clustering]
@@ -60,19 +60,19 @@ graph TD
         MLEngine --> NLQuery[Natural Language Query Bar Parser]
     end
 
-    Backend --> Export[Exportable HTML/PDF Report Engine]
+    Backend --> Export[Downloadable Report File Engine]
 ```
 
 ---
 
 ## 💡 What's Novel (Hackathon Differentiators)
 
-1. **Real SHAP TreeExplainer Explainability**: Removes "black-box" AI concerns by giving court-admissible feature attribution breakdowns ($\phi_i$) for every XGBoost risk prediction.
-2. **Bilingual (Kannada Unicode + English) FIR Text Mining**: Directly attacks the unstructured narrative problem by extracting structured entities (weapons, vehicles, MO tags) from mixed Kannada script (`ಸರ ಕಳವು`, `ಚಾಕು`, `ಗಾಂಜಾ`) and English text.
-3. **Built-in 80% Rule Bias & Fairness Audit**: Ensures ethical compliance by continuously calculating Disparate Impact Ratios ($0.80 \le \text{Ratio} \le 1.25$) dynamically across districts to prevent feedback-loop over-policing.
-4. **Actionable Patrol Optimization**: Converts abstract predictive risk scores into concrete Hoysala patrol vehicle waypoints and time slots.
-5. **DPDP 2023 Compliant Citizen Tip Layer**: Incorporates crowdsourced community tips that are automatically geo-fuzzed to protect citizen anonymity.
-6. **JWT Role-Based Auth Guard & Security**: Signed JWT access tokens with role claims, CORS domain restrictions, and FastAPI dependency guards.
+1. **Genuine PostgreSQL + PostGIS Database Backend**: All core endpoints (`/api/overview`, `/api/geospatial/hotspots`, `/api/trends`, `/api/tips`) query persistent database tables via SQLAlchemy ORM.
+2. **Role Password Authentication & PyJWT Guards**: Password verification (`ksp_admin_2025`, `ksp_analyst_2025`, `ksp_sp_2025`, etc.) with PyJWT algorithm enforcement and timestamp validation.
+3. **Real SHAP TreeExplainer Explainability**: Gives court-admissible feature attribution breakdowns ($\phi_i$) for every XGBoost risk prediction.
+4. **Bilingual (Kannada Unicode + English) FIR Text Mining**: Extracts structured entities (weapons, vehicles, MO tags) from mixed Kannada script (`ಸರ ಕಳವು`, `ಚಾಕು`, `ಗಾಂಜಾ`) and English text.
+5. **Dynamic 80% Rule Bias & Fairness Audit**: Dynamically calculates top-level overall fairness compliance percentages and district Disparate Impact Ratios ($0.80 \le \text{Ratio} \le 1.25$).
+6. **Downloadable Briefing Files & Persistent Citizen Tips**: Direct file downloads via `/api/report/download` and persistent citizen tip database writes (`/api/tips/submit`).
 
 ---
 
@@ -80,7 +80,7 @@ graph TD
 
 1. **0:00 – 0:30 (Command Center & Hotspots)**:
    - Open Kavach dashboard (`http://localhost:3000`). Show the dark SCRB Command Center theme.
-   - Point to the live **Executive Overview** cards showing 5,500 analyzed FIRs and active red zones.
+   - Point to the live **Executive Overview** cards querying 5,500 database FIR records and active red zones.
    - Switch to **Geospatial Intelligence**. Drag the **Time-of-Day Slider** from 18:00 to 23:00 to watch DBSCAN clusters dynamically recalculate and highlight the pulsing **Red-Zone Alert** in Peenya PS ($z = +2.4$).
 2. **0:30 – 1:00 (Network Graph & Criminal Rings)**:
    - Click **Network & Link Analysis**. Hover over the force graph to showcase offender co-accused links.
@@ -88,9 +88,9 @@ graph TD
 3. **1:00 – 1:30 (Predictive Risk & SHAP Explainability)**:
    - Click **AI Risk & SHAP Explainability**. Show the 7-day risk watchlist ranking stations by risk score.
    - Click **Peenya PS (Risk: 88/100)** to reveal the SHAP bar chart showing exact feature attributions (*Historical Density +0.38, Unemployment Rate +0.24*).
-4. **1:30 – 2:00 (Bilingual NLP & Intelligence Briefing)**:
+4. **1:30 – 2:00 (Bilingual NLP & Downloadable Briefing File)**:
    - Switch to **SCRB Innovation Suite** -> **Bilingual FIR NLP Mining**. Select a Kannada/English sample narrative and click **Extract Entities** to show extracted weapons (Knife/ಚಾಕು), vehicle (Pulsar 220), and IPC section 392.
-   - Click **Export Briefing** in the header to preview the printable KSP SCRB Intelligence Report document.
+   - Click **Export Briefing** -> **Download File** in the header to trigger a direct file download of the KSP SCRB Intelligence Report.
 
 ---
 

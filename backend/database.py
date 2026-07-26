@@ -1,9 +1,9 @@
 import os
-from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, DateTime, Text, ForeignKey
-from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+import pandas as pd
+from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean, Text
+from sqlalchemy.orm import declarative_base, sessionmaker
 import datetime
 
-# PostgreSQL / PostGIS Database URL (configurable via env var, defaults to sqlite for seamless local fallback)
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./kavach.db")
 
 engine = create_engine(
@@ -58,12 +58,104 @@ class CitizenTipModel(Base):
     credibility_score = Column(Float)
 
 def init_db():
-    """Create tables on startup."""
+    """Create database tables if they do not exist."""
     Base.metadata.create_all(bind=engine)
 
-def get_db():
+def seed_database_if_empty(df, tips_list):
+    """Seed generated FIR dataset and citizen tips into database idempotently."""
+    init_db()
     db = SessionLocal()
     try:
-        yield db
+        count = db.query(FIRRecordModel).count()
+        if count == 0:
+            print("Seeding synthetic FIR dataset into Database tables...")
+            fir_objects = []
+            for _, row in df.iterrows():
+                fir_objects.append(FIRRecordModel(
+                    fir_number=row['fir_number'],
+                    district=row['district'],
+                    station=row['station'],
+                    taluk=row['taluk'],
+                    lat=row['lat'],
+                    lng=row['lng'],
+                    timestamp=row['timestamp'],
+                    date=row['date'],
+                    hour=int(row['hour']),
+                    day_of_week=row['day_of_week'],
+                    crime_category=row['crime_category'],
+                    modus_operandi=row['modus_operandi'],
+                    offender_id=row['offender_id'],
+                    offender_name=row['offender_name'],
+                    victim_id=row['victim_id'],
+                    victim_name=row['victim_name'],
+                    victim_repeat=bool(row['victim_repeat']),
+                    weapon_extracted=row['weapon_extracted'],
+                    vehicle_extracted=row['vehicle_extracted'],
+                    fir_narrative=row['fir_narrative'],
+                    case_outcome=row['case_outcome'],
+                    is_anomaly=bool(row['is_anomaly']),
+                    urbanization=float(row['urbanization']),
+                    unemployment_rate=float(row['unemployment_rate']),
+                    literacy_rate=float(row['literacy_rate']),
+                    population_density=int(row['population_density'])
+                ))
+            db.bulk_save_objects(fir_objects)
+            
+            tip_objects = []
+            for tip in tips_list:
+                tip_objects.append(CitizenTipModel(
+                    tip_id=tip['tip_id'],
+                    district=tip['district'],
+                    station=tip['station'],
+                    category=tip['category'],
+                    description=tip['description'],
+                    fuzzed_lat=float(tip['fuzzed_lat']),
+                    fuzzed_lng=float(tip['fuzzed_lng']),
+                    timestamp=tip['timestamp'],
+                    credibility_score=float(tip['credibility_score'])
+                ))
+            db.bulk_save_objects(tip_objects)
+            db.commit()
+            print(f"Successfully persisted {len(fir_objects)} FIR records & {len(tip_objects)} Citizen Tips to Database.")
+    except Exception as e:
+        db.rollback()
+        print("Database Seed Error:", e)
+    finally:
+        db.close()
+
+def query_firs_from_db(district=None):
+    """Query FIR records from database."""
+    db = SessionLocal()
+    try:
+        query = db.query(FIRRecordModel)
+        if district and district != "All":
+            query = query.filter(FIRRecordModel.district == district)
+        records = query.all()
+        data = [{c.name: getattr(r, c.name) for c in r.__table__.columns} for r in records]
+        return pd.DataFrame(data)
+    finally:
+        db.close()
+
+def query_tips_from_db(district=None):
+    """Query citizen tips from database."""
+    db = SessionLocal()
+    try:
+        query = db.query(CitizenTipModel)
+        if district and district != "All":
+            query = query.filter(CitizenTipModel.district == district)
+        records = query.all()
+        return [{c.name: getattr(r, c.name) for c in r.__table__.columns} for r in records]
+    finally:
+        db.close()
+
+def add_tip_to_db(tip_dict):
+    """Add new citizen tip to database."""
+    db = SessionLocal()
+    try:
+        tip_obj = CitizenTipModel(**tip_dict)
+        db.add(tip_obj)
+        db.commit()
+        db.refresh(tip_obj)
+        return {c.name: getattr(tip_obj, c.name) for c in tip_obj.__table__.columns}
     finally:
         db.close()

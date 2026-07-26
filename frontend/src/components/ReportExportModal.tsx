@@ -44,12 +44,20 @@ export const ReportExportModal: React.FC<ReportExportModalProps> = ({ district, 
             </h3>
           </div>
           <div className="flex items-center space-x-2">
+            <a
+              href={api.downloadReportUrl(district)}
+              download
+              className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Download File</span>
+            </a>
             <button
               onClick={handlePrint}
               className="bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Print / Download PDF</span>
+              <span>Print / Save PDF</span>
             </button>
             <button
               onClick={onClose}
